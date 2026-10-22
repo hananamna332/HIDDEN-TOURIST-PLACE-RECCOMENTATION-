@@ -1,34 +1,60 @@
 
 import streamlit as st
-import pandas as pd
+import requests
 
-st.title("AI Hidden Tourist Spot Recommender")
+st.title("AI Tourist Spot Recommender")
 
-# Read tourist data
-data = pd.read_csv("attractions.csv")
+location = st.text_input("Enter any city or place")
 
-# Get user preferences
-location = st.selectbox("Choose location", data["location"].unique())
+if st.button("Find Places"):
 
-interest = st.selectbox("Choose your interest", data["category"].unique())
+    if location:
 
-budget = st.number_input("Enter your budget (₹)", min_value=0)
+        url = "https://nominatim.openstreetmap.org/search"
 
-# Recommend tourist spots
-if st.button("Find Tourist Spots"):
+        response = requests.get(
+            url,
+            params={
+                "q": location,
+                "format": "json",
+                "limit": 1 },  headers={"User-Agent": "TourismStudentProject"}, timeout=20 )
 
-    places = data[
-        (data["location"] == location) &
-        (data["category"] == interest) &
-        (data["cost"] <= budget)]
+        data = response.json()
 
-    if len(places) > 0:
-        st.subheader("Recommended Places")
+        if data:
+            lat = data[0]["lat"]
+            lon = data[0]["lon"]
 
-        for _, place in places.iterrows():
-            st.write("📍", place["name"])
-            st.write("Cost: ₹", place["cost"])
-            st.write(place["description"])
-            st.write("---")
+            query = f"""
+            [out:json];
+            node["tourism"="attraction"]
+            (around:10000,{lat},{lon});
+            out;
+            """
+
+            result = requests.post(
+                "https://overpass-api.de/api/interpreter",
+                data={"data": query}, timeout=40 ).json()
+
+            st.subheader("Tourist Spots")
+
+            count = 0
+
+            for place in result["elements"]:
+                name = place.get("tags", {}).get("name")
+
+                if name:
+                    st.write("📍", name)
+                    count += 1
+
+                if count == 10:
+                    break
+
+            if count == 0:
+                st.write("No named attractions found.")
+
+        else:
+            st.write("Location not found.")
+
     else:
-        st.warning("No matching places found.")
+        st.write("Please enter a location.")
