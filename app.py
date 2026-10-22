@@ -31,11 +31,20 @@ if st.button("Find Places"):
             (around:10000,{lat},{lon});
             out;
             """
+            try:
+                response = requests.post(
+                    "https://overpass.kumi.systems/api/interpreter",
+                    data={"data": query},
+                    timeout=40)
+                response.raise_for_status()
+                result = response.json()
+                results = result["elements"]
 
-            result = requests.post(
-                "https://overpass-api.de/api/interpreter",
-                data={"data": query}, timeout=40 ).json()
+            except requests.RequestException:
+                st.error("Tourist data is unavailable. Please try again later.")
+                st.stop()
 
+            
             st.subheader("Tourist Spots")
 
             count = 0
